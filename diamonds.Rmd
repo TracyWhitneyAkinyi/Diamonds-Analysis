@@ -1,0 +1,270 @@
+---
+title: "Data Analysis using Diamonds Data set"
+author: "Tracy Whitney Akinyi"
+date: '2022-06-29'
+output: html_document
+---
+
+# *Introduction*
+To iterate the words of John Tukey , _"The simple graph has brought more information to the data analyst's mind than any other device"_. This R Markdown document is an analysis output based on the data frame from ggplot. The data frame consists of 5390 rows and 10 variables.
+The variables are as follows:
+
+* price - price in US dollars (\$326–\$18,823).
+* carat - weight of the diamond (0.2–5.01).
+* cut - quality of the cut (Fair, Good, Very Good, Premium, Ideal).
+* color - diamond colour, from D (best) to J (worst).
+* clarity - a measurement of how clear the diamond is (I1 (worst), SI2, SI1, VS2, VS1,                 VVS2, VVS1, IF (best)).
+* x - length in mm (0–10.74).
+* y - width in mm (0–58.9).
+* z - depth in mm (0–31.8).
+* depth - total depth percentage = z / mean(x, y) = 2 * z / (x + y) (43–79).
+* table - width of top of diamond relative to widest point (43–95).
+
+## *Objectives*.
+
+* Observe the distribution of clarity.
+* Investigate the relationship between price and clarity.
+* Observe the distribution and relationship of cut and price.
+* Investigate the relationship between cut, colour and price.
+* Perform normality diagnosis on carat and price.
+* Compare the differences between price and carat with their logarithms.
+* Model Building by performing linear regression .
+
+First and foremost, we load the packages that we will use throughout our analysis. It is good practice to have all the libraries under one chunk.Since I will be using _tidyverse()_ package the most,I will load it the last. I love tidyverse because it combines general packages that used for data wrangling,visualization and modelling.For instance, in stead of loading _dplyr(),tidyr()_ and _ggplot2()_ , you just load _tidyverse()_ and you are set.
+
+## load packages
+```{r include=FALSE}
+library(dlookr)
+library(flextable)
+library(GGally)
+library(DataExplorer)
+library(QuantPsyc)
+library(ggpubr)
+library(DAAG)
+library(MASS)
+library(tidyverse)
+
+```
+
+Then we load our dataset *diamonds*
+
+## load data set
+```{r}
+data("diamonds")
+```
+
+##
+descriptive summary
+```{r}
+dlookr::describe(diamonds,quantiles=c(.25,.50,.75)) %>% flextable()
+```
+
+Some of the notable observations are as follows:
+* The median carat size is 0.7.
+* About 75% of diamonds have carat weights less than 1.
+* The median price for a diamonds 2401 dollars.
+
+## *Data Exploration*
+```{r}
+ggplot(diamonds)+
+  geom_bar(mapping = aes(x=clarity,color=clarity))+
+  ggtitle("Count of diamonds present with respect to Clarity")
+```
+
+Most diamonds are available with SI1 and SV2 clarity while least available with clarity I1, which has the worst clarity.
+
+
+```{r}
+ggplot(data = diamonds)+
+  geom_boxplot(aes(x=reorder(clarity,price,median),
+                   price,color=clarity))+
+  scale_x_discrete("clarity")+
+  coord_flip()+
+  ggtitle("Distribution of price and clarity")
+```
+
+The box plots have been reordered from the lowest median to the highest and we can observe that diamonds with IF clarity has the lowest price , which concludes that diamonds with quality clarity are cheaper on average.
+
+
+```{r}
+diamonds %>% 
+  ggplot(aes(x=cut,fill = cut))+
+  geom_bar()+
+  ggtitle("Count of diamonds present with respect to Cut")
+```
+
+The bar chart above shows that more diamonds are available with high quality(Ideal) cuts than with low quality cuts.
+
+
+```{r}
+diamonds %>%
+  ggplot(aes(x=cut,y=price, color=cut)) +
+  geom_boxplot()+
+  ggtitle("Distribution of price and cut")
+```
+
+The box plot shows that the best quality diamonds are cheaper on average.
+
+
+```{r}
+diamonds %>% ggplot(mapping=aes(x=cut,fill= color))+
+  geom_bar(position = "dodge")+
+  ggtitle("Count of diamonds present with respect to Cut and color")
+```
+
+Based on color,most diamonds have a color G or better i.e. G,F,E,D.
+
+```{r}
+ggplot(data = diamonds)+
+  geom_boxplot(aes(x=reorder(color,price,median),
+                   price,color=color))+
+  scale_x_discrete("color")+
+  coord_flip()+
+  ggtitle("Distribution of color and price")
+```
+
+Diamonds with better colors are much cheaper in average compared to diamonds with poor colors.
+
+We have see the relationship between the quality of diamonds and their prices :low quality diamonds(poor cuts,poor clarity and bad colors) have higher prices and vice versa.
+
+To observe the relationship between two continuous variables, scatter plots are best suited.In this case we are going to use price and carat,because low quality diamonds have higher prices because of carat.The weight of the diamond  which is a very important factor for determining the price of the diamond.This makes carat a confounding variable.
+
+```{r}
+diamonds %>% 
+  ggplot(mapping = aes(x=carat,y=price))+
+  geom_point(aes(color=cut))+
+  ggtitle("Visualization of carat vs. Price on distribution of cut")
+```
+
+```{r}
+diamonds %>% 
+  ggplot(mapping = aes(x=carat,y=price))+
+  geom_point(aes(color=clarity))+
+  ggtitle("Visualization of carat vs. Price on distribution of clarity")
+```
+
+```{r}
+diamonds %>% 
+  ggplot(mapping = aes(x=carat,y=price))+
+  geom_point(aes(color=color))+
+  ggtitle("Visualization of carat vs. Price on distribution of color")
+```
+
+The three scatter plots are proof that lower quality diamonds tend to have a larger weight.
+
+To visualize the correlation of each variables we use _ggpairs()_ from _GGally_
+```{r}
+DF = diamonds[,c("price","carat","x","y","z","depth","table")]
+ggpairs(DF)
+```
+
+From the pairwise plot we can observe that:
+* There is a high correlation between price and cart.
+* Carat is highly correlated to x,y,z. which could be translated that the carat would definitely be affected by its dimensions.
+* Price with table and depths exhibit poor correlation.
+
+
+The histogram shows that price and carat show better normality after log transformation.Hence we will log-transform price and carat in our model and keep on assessing our assumptions.
+```{r}
+diamonds %>% 
+  plot_normality(c(price,carat))
+```
+## Log-transform price and carat
+```{r}
+diamonds <- diamonds %>% 
+  mutate(log_carat = log(carat),
+         log_price = log(price))
+```
+
+
+```{r}
+diamonds %>% 
+  ggplot(mapping = aes(x=log_carat,y=log_price))+
+  geom_point(aes(color=clarity))+
+  ggtitle("Visualization of log(carat) vs.log(price) on distribution of clarity")
+```
+
+
+```{r}
+diamonds %>% 
+  ggplot(mapping = aes(x=log_carat,y=log_price))+
+  geom_point(aes(color=cut))+
+  ggtitle("Visualization of log(carat) vs.log(price) on distribution of cut")
+```
+
+
+```{r}
+diamonds %>% 
+  ggplot(mapping = aes(x=log_carat,y=log_price))+
+  geom_point(aes(color=color))+
+  ggtitle("Visualization of log(carat) vs.log(price) on distribution of color")
+```
+
+
+The log transformation has made the pattern linear in all three cut,clarity and color.
+
+```{r}
+DF2 = diamonds[,c("price","log_price","carat","log_carat")]
+ggpairs(DF2)
+```
+
+The correlation between log transformations of price and carat are higher(0.956) compared to price and carat(0.922)
+
+## *Linear Regression*
+
+We use _lm()_ to build the regression model and compare the model without log transformation and one with log transformation and perform feature selection using _stepAIC()_ on our preferred model.
+```{r}
+mod1 <- lm(price ~ carat+cut+clarity+depth+color+table+x+y+z,data = diamonds)
+summary(mod1)
+```
+
+From the p-values  we can tell that the predictors (except clarity 6,cut4 ,y and z) and the intercept are highly significant because of their low p-values (<0.05).R-squared measures how well the model fits the data.In this case, 92% of variation can be explained by the predictors.
+
+```{r}
+mod2 <- lm(log_price ~ log_carat+cut+clarity+color+depth+table+x+y+z,data = diamonds)
+summary(mod2)
+```
+
+mod 2's intercept and predictor variables(except cut4,clarity6,color 5 and 6,table,z and y)are highly significant. But model 2 has a higher R-squared(0.9827) compared to mod 1.This could mean that model 2 is a much better model compared to model 1. We will therefore carry model 2 for feature selection.
+
+### *Checking performance of both models*
+
+The _plot()_  returns a model performance plot which is usually 4 plots:
+
+* Plot 1(Linearity) - analyzes the linearity of the residuals versus the fitted values.The reference line ought to be horizontal.
+* Plot 2(Normality of residuals)- displays the qqplot ,the dots should fall along the line.
+* Plot 3(Homogeneity of Variance)- also measures the linearity of of the residuals vs the fitted values.
+* Plot 4(Influential Observations)- analyzes high leverage points which are points which deviate from the average The points should be within the contour lines.
+
+```{r}
+plot(mod1)
+```
+
+```{r}
+plot(mod2)
+```
+
+Model 2 follows the proper guidelines of a better model using the 4 plots compared to model 1.
+
+### *Feature Selection*
+
+stepAIC is one of the common methods of feature selection. It minimizes or increases the AIC value to come up with the best final set of features.Basically, stepAIC simplifies the model without impacting much on the performance.stepAIC also removes multicollinearity if it exists. Direction takes the following values:
+
+* "forward" -for forward selection.
+* "backward" - for backward selection.
+* "both" - for both forward and backward selection.
+
+```{r}
+step <- stepAIC(mod2,direction = "backward")
+```
+
+In the final model, y has been eliminated from the model. Not much information would be lost if y would be removed from the model.We run our final model without the y variable.
+
+```{r}
+mod3 <- lm(log_price ~ log_carat + cut + clarity + color + depth + x + z,data = diamonds)
+summary(mod3)
+```
+
+The code to this R markdown is available on my Github profile https://github.com/TracyWhitneyAkinyi 
+
+I hope you enjoyed ;)
