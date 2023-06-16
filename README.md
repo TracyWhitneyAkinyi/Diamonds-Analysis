@@ -15,6 +15,7 @@ The variables are as follows:
 * depth - total depth percentage = z / mean(x, y) = 2 * z / (x + y) (43–79).
 * table - width of top of diamond relative to widest point (43–95).
 
+To get view this entire project kindly click [here] (https://rpubs.com/Tracy_Whitney/920273)
 ## *Objectives*.
 
 * Observe the distribution of clarity.
